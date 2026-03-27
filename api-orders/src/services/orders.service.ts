@@ -11,7 +11,10 @@ export async function getOrders(page: number, limit: number) {
     [limit, offset]
   )
 
-  return result.rows
+  return result.rows.map((order: any) => ({
+    ...order,
+    total: Number(order.total)
+  }))
 }
 
 export async function createOrder(data: any) {
@@ -53,5 +56,37 @@ export async function createOrder(data: any) {
     throw error
   } finally {
     client.release()
+  }
+}
+
+export async function getOrderById(id: string) {
+  const orderResult = await pool.query(
+    `SELECT id, customer_name, status, total, created_at
+     FROM orders
+     WHERE id = $1`,
+    [id]
+  )
+
+  if (orderResult.rows.length === 0) {
+    return null
+  }
+
+  const itemsResult = await pool.query(
+    `SELECT product, quantity, unit_price
+     FROM order_items
+     WHERE order_id = $1
+     ORDER BY id ASC`,
+    [id]
+  )
+
+  const order = orderResult.rows[0]
+
+  return {
+    ...order,
+    total: Number(order.total),
+    items: itemsResult.rows.map((item: any) => ({
+      ...item,
+      unit_price: Number(item.unit_price)
+    }))
   }
 }
