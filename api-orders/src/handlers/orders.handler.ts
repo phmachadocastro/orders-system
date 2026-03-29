@@ -1,6 +1,14 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
-import { getOrders, createOrder, getOrderById } from '../services/orders.service'
-import { createOrderSchema } from '../schemas/orders.schema'
+import {
+  getOrders,
+  createOrder,
+  getOrderById,
+  updateOrderStatus
+} from '../services/orders.service'
+import {
+  createOrderSchema,
+  updateOrderStatusSchema
+} from '../schemas/orders.schema'
 
 export async function getOrdersHandler(
   request: FastifyRequest,
@@ -44,4 +52,31 @@ export async function getOrderByIdHandler(
   }
 
   return reply.send(order)
+}
+
+export async function updateOrderStatusHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const { id } = request.params as { id: string }
+  const parsed = updateOrderStatusSchema.safeParse(request.body)
+
+  if (!parsed.success) {
+    return reply.status(400).send({
+      error: 'Invalid request',
+      details: parsed.error.format()
+    })
+  }
+
+  const result = await updateOrderStatus(id, parsed.data.status)
+
+  if (result.type === 'not_found') {
+    return reply.status(404).send({ error: 'Order not found' })
+  }
+
+  if (result.type === 'invalid_transition') {
+    return reply.status(409).send({ error: 'Cannot cancel a confirmed order' })
+  }
+
+  return reply.send(result.order)
 }

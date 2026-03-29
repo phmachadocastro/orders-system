@@ -90,3 +90,45 @@ export async function getOrderById(id: string) {
     }))
   }
 }
+
+type UpdateStatusResult =
+  | { type: 'not_found' }
+  | { type: 'invalid_transition' }
+  | {
+      type: 'success'
+      order: {
+        id: string
+        customer_name: string
+        status: string
+        total: number
+        created_at: string
+      }
+    }
+
+export async function updateOrderStatus(
+  id: string,
+  status: 'pending' | 'confirmed' | 'cancelled'
+): Promise<UpdateStatusResult> {
+  const current = await pool.query(`SELECT status FROM orders WHERE id = $1`, [id])
+
+  if (current.rows.length === 0) return { type: 'not_found' }
+
+  if (current.rows[0].status === 'confirmed' && status === 'cancelled') {
+    return { type: 'invalid_transition' }
+  }
+
+  const updated = await pool.query(
+    `UPDATE orders
+     SET status = $1
+     WHERE id = $2
+     RETURNING id, customer_name, status, total, created_at`,
+    [status, id]
+  )
+
+  const row = updated.rows[0]
+
+  return {
+    type: 'success',
+    order: { ...row, total: Number(row.total) }
+  }
+}

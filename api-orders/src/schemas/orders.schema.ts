@@ -10,3 +10,7 @@ export const createOrderSchema = z.object({
   customer_name: z.string(),
   items: z.array(orderItemSchema).min(1)
 })
+
+export const updateOrderStatusSchema = z.object({
+  status: z.enum(['pending', 'confirmed', 'cancelled'])
+})
