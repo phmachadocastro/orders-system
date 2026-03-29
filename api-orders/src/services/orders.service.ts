@@ -1,6 +1,12 @@
 import { pool } from '../database/db'
 import { randomUUID } from 'crypto'
 
+/**
+ * Lists orders with pagination.
+ * @param page 1-based page number.
+ * @param limit Number of records per page.
+ * @returns Array of orders with numeric `total`.
+ */
 export async function getOrders(page: number, limit: number) {
   const offset = (page - 1) * limit
 
@@ -17,6 +23,12 @@ export async function getOrders(page: number, limit: number) {
   }))
 }
 
+/**
+ * Creates an order and all related items in a single transaction.
+ * @param data Customer and items payload.
+ * @returns Created order payload with generated `id`, computed `total`, and `pending` status.
+ * @throws Re-throws database errors after transaction rollback.
+ */
 export async function createOrder(data: any) {
   const total = data.items.reduce((acc: number, item: any) => {
     return acc + item.quantity * item.unit_price
@@ -59,6 +71,11 @@ export async function createOrder(data: any) {
   }
 }
 
+/**
+ * Finds one order by id and loads all related items.
+ * @param id Order UUID.
+ * @returns Order with `items` and numeric totals, or `null` when no order exists.
+ */
 export async function getOrderById(id: string) {
   const orderResult = await pool.query(
     `SELECT id, customer_name, status, total, created_at
@@ -105,6 +122,16 @@ type UpdateStatusResult =
       }
     }
 
+/**
+ * Updates an order status enforcing business transition rules.
+ * Rule: a `confirmed` order cannot be changed to `cancelled`.
+ * @param id Order UUID.
+ * @param status Target status.
+ * @returns
+ * - `{ type: 'not_found' }` when order does not exist
+ * - `{ type: 'invalid_transition' }` when transition is forbidden
+ * - `{ type: 'success', order }` when update succeeds
+ */
 export async function updateOrderStatus(
   id: string,
   status: 'pending' | 'confirmed' | 'cancelled'

@@ -10,6 +10,10 @@ import {
   updateOrderStatusSchema
 } from '../schemas/orders.schema'
 
+/**
+ * Handles paginated order listing.
+ * @returns HTTP 200 with an array of orders.
+ */
 export async function getOrdersHandler(
   request: FastifyRequest,
   reply: FastifyReply
@@ -21,6 +25,12 @@ export async function getOrdersHandler(
   return reply.send(orders)
 }
 
+/**
+ * Handles order creation from request body.
+ * @returns
+ * - HTTP 400 when payload validation fails
+ * - HTTP 201 with created order on success
+ */
 export async function createOrderHandler(
   request: FastifyRequest,
   reply: FastifyReply
@@ -39,6 +49,12 @@ export async function createOrderHandler(
   return reply.status(201).send(order)
 }
 
+/**
+ * Handles one-order retrieval by id.
+ * @returns
+ * - HTTP 404 when order is not found
+ * - HTTP 200 with order and items on success
+ */
 export async function getOrderByIdHandler(
   request: FastifyRequest,
   reply: FastifyReply
@@ -54,6 +70,14 @@ export async function getOrderByIdHandler(
   return reply.send(order)
 }
 
+/**
+ * Handles order status updates.
+ * @returns
+ * - HTTP 400 for invalid payload
+ * - HTTP 404 when order is not found
+ * - HTTP 409 when trying to cancel a confirmed order
+ * - HTTP 200 with updated order when successful
+ */
 export async function updateOrderStatusHandler(
   request: FastifyRequest,
   reply: FastifyReply
