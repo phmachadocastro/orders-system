@@ -35,14 +35,26 @@ cp .env.example .env
 cp api-orders/.env.example api-orders/.env
 ```
 
-Default values:
+Then update values in `.env` and `api-orders/.env`.
+Important: DB values must be the same across root and API env files.
 
-- `DB_KIND=postgresql`
-- `DB_HOST=localhost`
-- `DB_PORT=55432`
-- `DB_USER=postgres`
-- `DB_PASSWORD=postgres`
-- `DB_NAME=orders`
+Required variables:
+
+- `DB_KIND`
+- `DB_HOST`
+- `DB_PORT`
+- `DB_USER`
+- `DB_PASSWORD`
+- `DB_NAME`
+- `PORT` (API port)
+- `WORKER_CONFIRM_INTERVAL` (e.g. `60s`)
+- `WORKER_CONFIRM_AFTER_MINUTES` (e.g. `10`)
+
+Runtime hardening in this repo:
+
+- API fails fast when required DB vars or `PORT` are missing/invalid.
+- Worker datasource has no sensitive runtime defaults.
+- Docker Compose requires DB vars explicitly (`${VAR:?required}`).
 
 ## Run the Project (Step by Step)
 
@@ -57,7 +69,7 @@ docker compose ps
 Expected in `PORTS`:
 
 ```text
-0.0.0.0:55432->5432/tcp
+0.0.0.0:<DB_PORT>->5432/tcp
 ```
 
 ### 2. Start API (Terminal A)
@@ -71,10 +83,12 @@ npm run dev
 Expected log:
 
 ```text
-Server running on http://localhost:3000
+Server running on http://localhost:<PORT>
 ```
 
 ### 3. Check API health (Terminal B)
+
+If `PORT=3000`:
 
 ```bash
 curl -sS http://localhost:3000/
@@ -117,10 +131,19 @@ Business rule:
 
 ## End-to-End Test (API + DB + Worker)
 
+In a new terminal, load root env first:
+
+```bash
+cd /home/p/orders-system
+set -a
+source .env
+set +a
+```
+
 ### 1. Create an order
 
 ```bash
-CREATE_RES=$(curl -sS -X POST "http://localhost:3000/orders" \
+CREATE_RES=$(curl -sS -X POST "http://localhost:${PORT}/orders" \
   -H "Content-Type: application/json" \
   -d '{"customer_name":"E2E Test","items":[{"product":"Cable","quantity":1,"unit_price":25}]}')
 
@@ -129,10 +152,10 @@ ORDER_ID=$(echo "$CREATE_RES" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
 echo "$ORDER_ID"
 ```
 
-### 2. Force order to be older than 10 minutes
+### 2. Force order to be older than confirmation window
 
 ```bash
-docker compose exec -T db psql -U postgres -d orders -c \
+docker compose exec -T db psql -U "$DB_USER" -d "$DB_NAME" -c \
 "UPDATE orders
  SET status='pending',
      created_at=(NOW() AT TIME ZONE 'UTC') - INTERVAL '11 minutes'
@@ -142,7 +165,7 @@ docker compose exec -T db psql -U postgres -d orders -c \
 ### 3. Verify status before worker cycle
 
 ```bash
-curl -sS "http://localhost:3000/orders/$ORDER_ID"
+curl -sS "http://localhost:${PORT}/orders/$ORDER_ID"
 ```
 
 Expected:
@@ -151,10 +174,10 @@ Expected:
 "status":"pending"
 ```
 
-### 4. Wait ~60 seconds and verify again
+### 4. Wait ~1 worker cycle and verify again
 
 ```bash
-curl -sS "http://localhost:3000/orders/$ORDER_ID"
+curl -sS "http://localhost:${PORT}/orders/$ORDER_ID"
 ```
 
 Expected:
@@ -165,16 +188,27 @@ Expected:
 
 ## Troubleshooting
 
-### `EADDRINUSE: 127.0.0.1:3000`
+### Missing required env var
 
-Port 3000 already in use.
+You will see fail-fast startup errors if required vars are missing.
+
+Check that these files exist and are filled:
+
+- `/home/p/orders-system/.env`
+- `/home/p/orders-system/api-orders/.env`
+
+### `EADDRINUSE: 127.0.0.1:<PORT>`
+
+Port already in use:
 
 ```bash
 lsof -i :3000 -n -P
 kill <PID>
 ```
 
-### `ECONNREFUSED 127.0.0.1:55432`
+If you use another port, replace `3000` accordingly.
+
+### `ECONNREFUSED 127.0.0.1:<DB_PORT>`
 
 API/Worker cannot reach Postgres.
 
@@ -184,14 +218,9 @@ API/Worker cannot reach Postgres.
 docker compose ps
 ```
 
-2. Confirm API env (`api-orders/.env`) has:
+2. Confirm DB vars match between root and API env files.
 
-```text
-DB_HOST=localhost
-DB_PORT=55432
-```
-
-3. Restart API after env changes.
+3. Restart API and worker after env changes.
 
 ### `release version 21 not supported`
 

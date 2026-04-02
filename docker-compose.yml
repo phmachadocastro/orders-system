@@ -4,10 +4,10 @@ services:
     container_name: orders_db
     restart: always
     environment:
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
-      POSTGRES_DB: ${DB_NAME:-orders}
+      POSTGRES_USER: ${DB_USER:?DB_USER is required}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      POSTGRES_DB: ${DB_NAME:?DB_NAME is required}
     ports:
-      - "${DB_PORT:-55432}:5432"
+      - "${DB_PORT:?DB_PORT is required}:5432"
     volumes:
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
