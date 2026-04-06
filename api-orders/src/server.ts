@@ -17,7 +17,7 @@ const app = Fastify({
 app.register(ordersRoutes)
 
 app.get('/', async () => {
-  return { message: 'API rodando 🚀' }
+  return { message: 'API is running 🚀' }
 })
 
 // start server

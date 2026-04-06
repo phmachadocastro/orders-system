@@ -97,7 +97,7 @@ curl -sS http://localhost:3000/
 Expected:
 
 ```json
-{"message":"API rodando 🚀"}
+{"message":"API is running 🚀"}
 ```
 
 ### 4. Start Worker (Terminal C)
